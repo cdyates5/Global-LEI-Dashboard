@@ -1,0 +1,48 @@
+name: Refresh dashboard
+
+# Rebuilds the dashboard from FRED and publishes it to GitHub Pages.
+on:
+  schedule:
+    - cron: "0 6 * * 1-5"     # 06:00 UTC, Monday–Friday (GitHub may delay a few min)
+  workflow_dispatch: {}        # adds a manual "Run workflow" button
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build dashboard (fetch FRED, rebuild composites, inject data)
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: python build.py
+
+      - name: Stage site
+        run: mkdir -p _site && cp index.html _site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
