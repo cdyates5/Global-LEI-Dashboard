@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>US Growth Leading Indicator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B121B; --bg2:#0E1623; --panel:#121F2D; --panel2:#162536;
+  --line:#23344A; --line-soft:#1A2938;
+  --ink:#E9F0F8; --ink2:#A7B8CC; --muted:#6E8298; --faint:#46586D;
+  --pos:#2FD0A6; --pos-soft:rgba(47,208,166,.16); --pos-line:rgba(47,208,166,.55);
+  --neg:#F46A52; --neg-soft:rgba(244,106,82,.16); --neg-line:rgba(244,106,82,.55);
+  --gold:#E9B43C; --rec:rgba(150,168,193,.085); --rec-edge:rgba(150,168,193,.22);
+  --shadow:0 1px 0 rgba(255,255,255,.02), 0 18px 40px -24px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(47,208,166,.05), transparent 60%),
+    radial-gradient(1000px 500px at 0% 0%, rgba(233,180,60,.045), transparent 55%),
+    var(--bg);
+  color:var(--ink); font-family:"Inter",system-ui,sans-serif; font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; letter-spacing:-.005em;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:30px 22px 70px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted)}
+
+/* ---------- masthead ---------- */
+.mast{display:flex; justify-content:space-between; align-items:flex-end; gap:24px; flex-wrap:wrap;
+  padding-bottom:20px; border-bottom:1px solid var(--line-soft)}
+.mast h1{font-family:"Space Grotesk",sans-serif; font-weight:600; font-size:30px; line-height:1.05;
+  margin:.34em 0 .12em; letter-spacing:-.02em}
+.mast .sub{color:var(--ink2); font-size:13.5px; max-width:48ch}
+.mast .sub b{color:var(--ink); font-weight:600}
+.reading{text-align:right; flex-shrink:0}
+.reading .label{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:2px}
+.reading .big{font-family:"Space Grotesk",sans-serif; font-weight:600; font-size:52px; line-height:.95; letter-spacing:-.03em}
+.reading .as-of{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); margin-top:4px}
+.regime{display:inline-flex; align-items:center; gap:7px; margin-top:8px; padding:5px 11px; border-radius:999px;
+  font-size:12.5px; font-weight:500; border:1px solid var(--line)}
+.regime .dot{width:8px; height:8px; border-radius:50%}
+
+/* ---------- stat strip ---------- */
+.stats{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:20px 0 26px}
+.stat{background:linear-gradient(180deg,var(--panel),var(--bg2)); border:1px solid var(--line-soft);
+  border-radius:12px; padding:13px 15px; box-shadow:var(--shadow)}
+.stat .k{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.13em; text-transform:uppercase; color:var(--muted)}
+.stat .v{font-family:"Space Grotesk",sans-serif; font-weight:600; font-size:25px; margin-top:5px; letter-spacing:-.01em}
+.stat .x{font-size:11.5px; color:var(--ink2); margin-top:2px}
+.stat .v small{font-size:13px; font-weight:500; color:var(--muted)}
+
+/* ---------- panels ---------- */
+.panel{background:linear-gradient(180deg,var(--panel),var(--bg2)); border:1px solid var(--line-soft);
+  border-radius:14px; box-shadow:var(--shadow)}
+.phead{display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
+  padding:16px 20px 12px}
+.phead h2{font-family:"Space Grotesk",sans-serif; font-weight:600; font-size:16px; margin:0; letter-spacing:-.01em}
+.phead .note{font-size:12px; color:var(--muted)}
+
+/* controls */
+.ctrls{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.seg{display:inline-flex; background:var(--bg); border:1px solid var(--line); border-radius:9px; overflow:hidden}
+.seg button{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink2); background:transparent;
+  border:0; padding:6px 11px; cursor:pointer; letter-spacing:.02em}
+.seg button:hover{color:var(--ink); background:rgba(255,255,255,.03)}
+.seg button[aria-pressed="true"]{background:var(--panel2); color:var(--ink)}
+.tog{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink2); background:var(--bg);
+  border:1px solid var(--line); border-radius:9px; padding:6px 11px; cursor:pointer; display:inline-flex; align-items:center; gap:7px}
+.tog:hover{color:var(--ink)}
+.tog .sw{width:24px; height:14px; border-radius:999px; background:#26384d; position:relative; transition:background .18s}
+.tog .sw::after{content:""; position:absolute; top:2px; left:2px; width:10px; height:10px; border-radius:50%; background:#7e93aa; transition:all .18s}
+.tog[aria-pressed="true"] .sw{background:var(--pos-line)}
+.tog[aria-pressed="true"] .sw::after{left:12px; background:#eafff8}
+.tog .dotc{width:9px;height:9px;border-radius:2px;background:var(--gold);display:inline-block}
+
+/* chart */
+.chartwrap{position:relative; padding:4px 12px 14px}
+svg{display:block; width:100%; height:auto; overflow:visible}
+.cross-read{position:absolute; top:14px; left:20px; pointer-events:none; background:rgba(10,17,26,.86);
+  border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-family:"IBM Plex Mono",monospace;
+  font-size:11.5px; color:var(--ink2); opacity:0; transition:opacity .12s; backdrop-filter:blur(6px); min-width:150px; z-index:3}
+.cross-read.on{opacity:1}
+.cross-read .m{color:var(--ink); font-weight:600; font-size:12.5px; margin-bottom:5px; letter-spacing:.02em}
+.cross-read .r{display:flex; justify-content:space-between; gap:14px}
+.cross-read .r span:last-child{color:var(--ink); font-weight:500}
+.legend{display:flex; gap:16px; flex-wrap:wrap; padding:2px 20px 16px; font-size:11.5px; color:var(--muted); font-family:"IBM Plex Mono",monospace}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block;vertical-align:middle;margin-right:6px}
+
+/* lower grid */
+.grid2{display:grid; grid-template-columns:1.32fr 1fr; gap:18px; margin-top:18px}
+.bars{padding:6px 20px 18px}
+.brow{display:grid; grid-template-columns:148px 1fr 52px; align-items:center; gap:10px; padding:7px 0; cursor:pointer; border-radius:7px}
+.brow:hover{background:rgba(255,255,255,.025)}
+.brow.sel{background:rgba(47,208,166,.06)}
+.brow .nm{font-size:12.5px; color:var(--ink2); display:flex; flex-direction:column; line-height:1.18}
+.brow .nm small{font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.04em; color:var(--faint); text-transform:uppercase}
+.brow.sel .nm{color:var(--ink)}
+.btrack{position:relative; height:20px}
+.bzero{position:absolute; left:50%; top:-3px; bottom:-3px; width:1px; background:var(--line)}
+.bfill{position:absolute; top:3px; height:14px; border-radius:3px}
+.bval{font-family:"IBM Plex Mono",monospace; font-size:12.5px; text-align:right; font-weight:500}
+.bhint{font-size:11px;color:var(--muted);padding:4px 20px 14px;font-family:"IBM Plex Mono",monospace}
+
+.ll{padding:6px 20px 20px}
+.llbars{display:flex; align-items:flex-end; gap:4px; height:120px; margin:14px 0 6px; border-bottom:1px solid var(--line)}
+.llbar{flex:1; background:var(--line); border-radius:3px 3px 0 0; position:relative; transition:background .15s; min-height:2px}
+.llbar.peak{background:var(--gold)}
+.llbar:hover{background:var(--ink2)}
+.llbar.peak:hover{background:var(--gold)}
+.llx{display:flex; gap:4px; font-family:"IBM Plex Mono",monospace; font-size:9px; color:var(--faint)}
+.llx span{flex:1; text-align:center}
+.llcap{font-size:12.5px; color:var(--ink2); margin-top:12px}
+.llcap b{color:var(--ink); font-weight:600}
+
+/* methodology */
+.method{margin-top:18px; padding:18px 22px 6px}
+.method h3{font-family:"Space Grotesk",sans-serif; font-size:14px; margin:0 0 10px; font-weight:600; color:var(--ink)}
+.mlist{display:grid; grid-template-columns:repeat(2,1fr); gap:6px 26px; font-size:12.5px; color:var(--ink2)}
+.mlist div{display:flex; justify-content:space-between; gap:12px; padding:5px 0; border-bottom:1px solid var(--line-soft)}
+.mlist .t{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--muted); white-space:nowrap}
+.foot{margin-top:20px; padding-top:16px; border-top:1px solid var(--line-soft); font-size:11.5px; color:var(--muted); line-height:1.65}
+.foot code{font-family:"IBM Plex Mono",monospace; color:var(--ink2); background:var(--bg); padding:1px 5px; border-radius:4px; font-size:11px}
+.foot b{color:var(--ink2);font-weight:600}
+
+/* ---------- data table ---------- */
+.tbl-tools{display:flex; gap:9px; align-items:center; flex-wrap:wrap}
+.btn{font-family:"IBM Plex Mono",monospace; font-size:11.5px; border-radius:9px; padding:7px 13px; cursor:pointer;
+  display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink2); letter-spacing:.02em}
+.btn:hover{color:var(--ink); border-color:var(--line)}
+.btn.primary{background:color-mix(in srgb,var(--pos) 16%, var(--bg)); border-color:var(--pos-line); color:#d6fff3}
+.btn.primary:hover{background:color-mix(in srgb,var(--pos) 24%, var(--bg))}
+.btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.7}
+.btn.ok{color:var(--pos);border-color:var(--pos-line)}
+.tablewrap{max-height:438px; overflow:auto; border-top:1px solid var(--line-soft); margin-top:2px}
+table.hist{border-collapse:collapse; width:100%; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-variant-numeric:tabular-nums}
+table.hist thead th{position:sticky; top:0; z-index:2; background:var(--panel2); color:var(--muted); font-weight:500;
+  padding:8px 9px; text-align:right; white-space:nowrap; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase;
+  border-bottom:1px solid var(--line); cursor:help}
+table.hist thead th:first-child{text-align:left; left:0; z-index:3}
+table.hist tbody td{padding:4.5px 9px; text-align:right; border-bottom:1px solid var(--line-soft); color:var(--ink2)}
+table.hist tbody td:first-child{text-align:left; color:var(--ink); position:sticky; left:0; background:var(--bg2); font-weight:500}
+table.hist tbody tr:hover td{background:rgba(255,255,255,.035)}
+table.hist tbody tr:hover td:first-child{background:#0f1a27}
+table.hist .pos{color:var(--pos)} table.hist .neg{color:var(--neg)} table.hist .nul{color:var(--faint)}
+table.hist td.cmp{font-weight:600}
+
+@media (max-width:880px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .grid2{grid-template-columns:1fr}
+  .mlist{grid-template-columns:1fr}
+  .reading{text-align:left}
+  .mast{align-items:flex-start}
+  .reading .big{font-size:44px}
+}
+@media (max-width:520px){
+  .wrap{padding:22px 14px 50px}
+  .brow{grid-template-columns:120px 1fr 44px}
+  .mast h1{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+:focus-visible{outline:2px solid var(--pos); outline-offset:2px; border-radius:6px}
+.ctabs{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 20px}
+.ctabs button{font:600 13px/1 'Space Grotesk',sans-serif;letter-spacing:.02em;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 16px;cursor:pointer;transition:.15s}
+.ctabs button:hover{color:var(--ink);border-color:var(--faint)}
+.ctabs button[aria-pressed="true"]{color:var(--bg);background:var(--ink);border-color:var(--ink)}
+.tog .lab{display:inline}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <div>
+      <div class="eyebrow">Composite Leading Indicators &middot; Variant-Perception style</div>
+      <h1>Global Growth Leading Indicators</h1>
+      <div class="sub" id="sub-txt">&mdash;</div>
+    </div>
+    <div class="reading">
+      <div class="label">Composite&nbsp;&middot;&nbsp;z-score</div>
+      <div class="big mono" id="r-big">—</div>
+      <div class="as-of" id="r-asof">—</div>
+      <div class="regime" id="r-regime"><span class="dot"></span><span class="t">—</span></div>
+    </div>
+  </header>
+
+  <nav class="ctabs" id="ctabs" role="tablist" aria-label="Country"></nav>
+
+  <section class="stats" id="stats"></section>
+
+  <section class="panel">
+    <div class="phead">
+      <div><h2>Composite vs the cycle</h2><div class="note" id="hero-note">Shaded bands = OECD-dated recessions</div></div>
+      <div class="ctrls">
+        <div class="seg" id="range" role="group" aria-label="Time range">
+          <button data-yrs="0" aria-pressed="true">All</button>
+          <button data-yrs="25">25y</button>
+          <button data-yrs="15">15y</button>
+          <button data-yrs="8">8y</button>
+        </div>
+        <button class="tog" id="t-ip" aria-pressed="false"><span class="dotc"></span><span class="lab">GDP YoY</span></button>
+        <button class="tog" id="t-align" aria-pressed="false"><span class="sw"></span><span id="align-lab">Advance GDP</span></button>
+        <button class="tog" id="t-bands" aria-pressed="true"><span class="sw"></span>±1/±2σ bands</button>
+      </div>
+    </div>
+    <div class="chartwrap">
+      <div class="cross-read" id="cross"></div>
+      <svg id="hero" role="img" aria-label="Composite growth leading indicator"></svg>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel">
+      <div class="phead">
+        <div><h2>What's driving it</h2><div class="note">Latest standardized contributions &middot; <span id="contrib-date">—</span></div></div>
+      </div>
+      <div class="bars" id="bars"></div>
+      <div class="bhint">Click any component to overlay its z-score on the chart above.</div>
+    </section>
+
+    <section class="panel">
+      <div class="phead"><div><h2>Lead profile</h2><div class="note" id="ll-note">corr. vs GDP YoY</div></div></div>
+      <div class="ll">
+        <div class="llbars" id="llbars"></div>
+        <div class="llx" id="llx"></div>
+        <div class="llcap" id="llcap"></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="phead">
+      <div><h2>Historical data</h2><div class="note" id="tbl-note">—</div></div>
+      <div class="tbl-tools">
+        <button class="btn" id="btn-copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button>
+        <button class="btn primary" id="btn-csv"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>Download CSV</button>
+      </div>
+    </div>
+    <div class="tablewrap"><table class="hist" id="histtbl"></table></div>
+  </section>
+
+  <section class="panel method">
+    <h3>Construction</h3>
+    <div class="mlist" id="mlist"></div>
+    <div class="foot" id="foot"></div>
+  </section>
+
+</div>
+
+<script>
+const DATA = /*__DATA__*/{};
+
+/* ---------- multi-country data layer ---------- */
+let CC = DATA.order[0];
+let D, C, months, cvals, N, idxOf, breadthA, ipA, LAG, META, COMPN, SHORT, compMaps;
+const fmt = (x,d=2)=> x==null?"\u2014":(x>=0?"+":"")+x.toFixed(d);
+const monLabel = m => { const [y,mo]=m.split("-"); return ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+mo]+" "+y; };
+function alignTo(series){ const map={}; series.d.forEach((m,i)=>map[m]=series.v[i]); return months.map(m=> m in map?map[m]:null); }
+function ipAligned(advance){ if(!advance) return ipA; const out=new Array(N).fill(null); for(let i=0;i<N;i++){ if(i+LAG<N) out[i]=ipA[i+LAG]; } return out; }
+function regime(z){
+  if(z>=1)   return ["Expansionary","var(--pos)"];
+  if(z>=0.3) return ["Above trend","var(--pos)"];
+  if(z>-0.3) return ["Near trend","var(--gold)"];
+  if(z>-1)   return ["Below trend","var(--neg)"];
+  return ["Contractionary","var(--neg)"];
+}
+let state = {yrs:0, ip:false, align:false, bands:true, overlay:null};
+
+function subText(){
+  const cats=[...new Set(COMPN.map(k=>META[k].cat))];
+  return `<b>${D.meta.name}.</b> ${COMPN.length} forward-looking series &mdash; ${cats.join(", ").toLowerCase()} &mdash; z-scored and averaged into one signal that <b>leads ${D.coin_name.replace(" YoY","")} growth</b>. Composite from ${D.meta.start}.`;
+}
+function setActive(cc){
+  CC=cc; D=DATA[cc];
+  C=D.composite; months=C.d; cvals=C.v; N=months.length;
+  idxOf={}; months.forEach((m,i)=>idxOf[m]=i);
+  breadthA=alignTo(D.breadth); ipA=alignTo(D.ip_yoy); LAG=D.leadlag.best_k;
+  META=D.cmeta; COMPN=D.order; SHORT={}; COMPN.forEach(k=>SHORT[k]=META[k].short);
+  compMaps={}; COMPN.forEach(k=>{const mp={}; const sc=D.components[k]; sc.d.forEach((mm,i)=>mp[mm]=sc.v[i]); compMaps[k]=mp;});
+  state.overlay=null;
+  document.querySelectorAll("#ctabs button").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.cc===cc)));
+  document.querySelector("#t-ip .lab").textContent=D.coin_name;
+  document.getElementById("align-lab").textContent="Advance "+D.coin_name.split(" ")[0]+" +"+LAG+"m";
+  document.getElementById("hero-note").textContent="Shaded bands = "+D.meta.rec_note;
+  document.getElementById("sub-txt").innerHTML=subText();
+  renderStats(); renderBars(); renderLeadLag(); renderMethod(); renderTable(); renderHero();
+}
+
+/* ---------- HERO CHART ---------- */
+const hero = document.getElementById("hero");
+const cross = document.getElementById("cross");
+let geo = null;
+
+function visRange(){
+  let i0 = 0;
+  if(state.yrs>0) i0 = Math.max(0, N - state.yrs*12 - 1);
+  return [i0, N-1];
+}
+
+function renderHero(){
+  const hero = document.getElementById("hero");
+  const W = hero.clientWidth || 820, H = Math.max(330, Math.min(440, W*0.46));
+  const m = {l:34, r:state.ip?44:18, t:14, b:26};
+  const iw = W-m.l-m.r, ih = H-m.t-m.b;
+  const [i0,i1] = visRange();
+  const n = i1-i0+1;
+  const x = i => m.l + (n<=1?0:(i-i0)/(n-1)*iw);
+  const yd = [-3,3];
+  const y = v => m.t + (yd[1]-v)/(yd[1]-yd[0])*ih;
+  geo = {W,H,m,iw,ih,i0,i1,n,x,y,yd};
+
+  let s = ``;
+  // defs
+  s += `<defs>
+    <linearGradient id="gpos" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="var(--pos)" stop-opacity=".34"/><stop offset="1" stop-color="var(--pos)" stop-opacity=".02"/></linearGradient>
+    <linearGradient id="gneg" x1="0" x2="0" y1="1" y2="0">
+      <stop offset="0" stop-color="var(--neg)" stop-opacity=".34"/><stop offset="1" stop-color="var(--neg)" stop-opacity=".02"/></linearGradient>
+  </defs>`;
+
+  // recession bands
+  D.recessions.forEach(([a,b])=>{
+    const ia = idxOf[a.slice(0,7)], ib = idxOf[b.slice(0,7)];
+    if(ia==null&&ib==null) return;
+    let xa = ia==null?i0:Math.max(ia,i0), xb = ib==null?i1:Math.min(ib,i1);
+    if(xb<i0||xa>i1) return;
+    xa=Math.max(xa,i0); xb=Math.min(xb,i1);
+    s += `<rect x="${x(xa).toFixed(1)}" y="${m.t}" width="${Math.max(1,x(xb)-x(xa)).toFixed(1)}" height="${ih}" fill="var(--rec)"/>`;
+    s += `<line x1="${x(xa).toFixed(1)}" y1="${m.t}" x2="${x(xa).toFixed(1)}" y2="${m.t+ih}" stroke="var(--rec-edge)" stroke-width="1"/>`;
+  });
+
+  // gridlines + bands
+  const glines = state.bands?[-2,-1,0,1,2]:[-2,0,2];
+  glines.forEach(g=>{
+    const yy=y(g).toFixed(1);
+    const zero = g===0;
+    s += `<line x1="${m.l}" y1="${yy}" x2="${m.l+iw}" y2="${yy}" stroke="${zero?'var(--line)':'var(--line-soft)'}" stroke-width="${zero?1.4:1}" ${g!==0&&!state.bands?'stroke-dasharray="2 4"':''}/>`;
+    s += `<text x="${m.l-7}" y="${(+yy+3).toFixed(1)}" text-anchor="end" class="mono" font-size="10" fill="var(--faint)">${g>0?'+':''}${g}</text>`;
+  });
+
+  // build composite paths (diverging area + line)
+  const pts=[], posPts=[], negPts=[];
+  for(let i=i0;i<=i1;i++){ const v=cvals[i]; pts.push([x(i),y(v)]); posPts.push([x(i),y(Math.max(v,0))]); negPts.push([x(i),y(Math.min(v,0))]); }
+  const y0=y(0);
+  const areaPath = (p)=> `M${p[0][0].toFixed(1)},${y0.toFixed(1)} `+p.map(q=>`L${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(" ")+` L${p[p.length-1][0].toFixed(1)},${y0.toFixed(1)} Z`;
+  s += `<path d="${areaPath(posPts)}" fill="url(#gpos)"/>`;
+  s += `<path d="${areaPath(negPts)}" fill="url(#gneg)"/>`;
+  const linePath = "M"+pts.map(q=>`${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(" L");
+  s += `<path d="${linePath}" fill="none" stroke="var(--ink)" stroke-width="1.7" stroke-linejoin="round"/>`;
+
+  // IP overlay
+  if(state.ip){
+    const ipv = ipAligned(state.align);
+    const vis = []; for(let i=i0;i<=i1;i++) if(ipv[i]!=null) vis.push(ipv[i]);
+    const mx = Math.max(4, ...vis.map(Math.abs));
+    const yIP = v => m.t + (mx-v)/(2*mx)*ih;
+    let started=false, p="";
+    for(let i=i0;i<=i1;i++){ const v=ipv[i]; if(v==null){started=false;continue;} p += (started?" L":"M")+x(i).toFixed(1)+","+yIP(v).toFixed(1); started=true; }
+    s += `<path d="${p}" fill="none" stroke="var(--gold)" stroke-width="1.5" stroke-opacity=".9" stroke-dasharray="${state.align?'':'1 0'}"/>`;
+    // right axis ticks
+    [mx/2,0,-mx/2].forEach(t=>{ s+=`<text x="${m.l+iw+6}" y="${(yIP(t)+3).toFixed(1)}" class="mono" font-size="9.5" fill="var(--gold)" opacity=".8">${t>0?'+':''}${t.toFixed(0)}</text>`; });
+  }
+
+  // component overlay
+  if(state.overlay){
+    const cs = D.components[state.overlay];
+    const map={}; cs.d.forEach((mm,i)=>map[mm]=cs.v[i]);
+    let started=false,p="";
+    for(let i=i0;i<=i1;i++){ const v=map[months[i]]; if(v==null){started=false;continue;} p+=(started?" L":"M")+x(i).toFixed(1)+","+y(Math.max(-3,Math.min(3,v))).toFixed(1); started=true; }
+    s += `<path d="${p}" fill="none" stroke="${META[state.overlay].col}" stroke-width="1.5" stroke-opacity=".95"/>`;
+  }
+
+  // x ticks (years)
+  const span = months[i1].slice(0,4)-months[i0].slice(0,4);
+  const step = span>34?10:span>16?5:span>8?2:1;
+  let lastY=null;
+  for(let i=i0;i<=i1;i++){ const yr=+months[i].slice(0,4); if(months[i].slice(5)==="01"&&yr%step===0&&yr!==lastY){ lastY=yr;
+    s += `<line x1="${x(i).toFixed(1)}" y1="${m.t+ih}" x2="${x(i).toFixed(1)}" y2="${m.t+ih+4}" stroke="var(--faint)"/>`;
+    s += `<text x="${x(i).toFixed(1)}" y="${m.t+ih+16}" text-anchor="middle" class="mono" font-size="10" fill="var(--muted)">${yr}</text>`; } }
+
+  // current marker
+  const lv=cvals[N-1];
+  if(i1===N-1){ s += `<circle cx="${x(N-1).toFixed(1)}" cy="${y(lv).toFixed(1)}" r="3.6" fill="${lv>=0?'var(--pos)':'var(--neg)'}" stroke="var(--bg)" stroke-width="1.6"/>`; }
+
+  // crosshair hit layer
+  s += `<rect id="hit" x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" style="cursor:crosshair"/>`;
+  s += `<g id="ch" style="display:none"><line stroke="var(--ink2)" stroke-width="1" stroke-dasharray="3 3"/><circle r="4" fill="var(--ink)" stroke="var(--bg)" stroke-width="1.5"/></g>`;
+  hero.setAttribute("viewBox",`0 0 ${W} ${H}`);
+  hero.setAttribute("width",W); hero.setAttribute("height",H);
+  hero.innerHTML = s;
+  bindHero();
+  renderLegend();
+}
+
+function bindHero(){
+  const svg=document.getElementById("hero"); const hit=svg.querySelector("#hit");
+  const ch=svg.querySelector("#ch"); const line=ch.querySelector("line"); const dot=ch.querySelector("circle");
+  function move(ev){
+    const r=svg.getBoundingClientRect(); const sx=geo.W/r.width;
+    const px=(ev.clientX-r.left)*sx;
+    let i=Math.round(geo.i0 + (px-geo.m.l)/geo.iw*(geo.n-1));
+    i=Math.max(geo.i0,Math.min(geo.i1,i));
+    const X=geo.x(i), Y=geo.y(cvals[i]);
+    ch.style.display=""; line.setAttribute("x1",X);line.setAttribute("x2",X);
+    line.setAttribute("y1",geo.m.t);line.setAttribute("y2",geo.m.t+geo.ih);
+    dot.setAttribute("cx",X);dot.setAttribute("cy",Y);
+    const [rg,col]=regime(cvals[i]);
+    let html=`<div class="m">${monLabel(months[i])}</div>`;
+    html+=`<div class="r"><span>composite</span><span style="color:${cvals[i]>=0?'var(--pos)':'var(--neg)'}">${fmt(cvals[i])}σ</span></div>`;
+    html+=`<div class="r"><span>regime</span><span>${rg}</span></div>`;
+    if(breadthA[i]!=null) html+=`<div class="r"><span>breadth</span><span>${breadthA[i].toFixed(0)}%</span></div>`;
+    if(state.ip){ const v=ipAligned(state.align)[i]; if(v!=null) html+=`<div class="r"><span>${D.coin_name}</span><span style="color:var(--gold)">${fmt(v,1)}%</span></div>`; }
+    if(state.overlay){ const cs=D.components[state.overlay]; const mp={};cs.d.forEach((mm,k)=>mp[mm]=cs.v[k]); const v=mp[months[i]]; if(v!=null) html+=`<div class="r"><span>${META[state.overlay].id}</span><span style="color:${META[state.overlay].col}">${fmt(v)}σ</span></div>`; }
+    cross.innerHTML=html; cross.classList.add("on");
+  }
+  hit.addEventListener("pointermove",move);
+  hit.addEventListener("pointerdown",move);
+  hit.addEventListener("pointerleave",()=>{ch.style.display="none";cross.classList.remove("on");});
+}
+
+function renderLegend(){
+  let h=`<span><i style="background:var(--ink)"></i>Composite z-score</span>`;
+  h+=`<span><i style="background:linear-gradient(90deg,var(--neg),var(--pos))"></i>Expansion / contraction fill</span>`;
+  h+=`<span><i style="background:var(--rec-edge);height:10px;width:10px;border-radius:2px"></i>Recession</span>`;
+  if(state.ip) h+=`<span><i style="background:var(--gold)"></i>${D.coin_name}${state.align?` (advanced ${LAG}m)`:''}</span>`;
+  if(state.overlay) h+=`<span><i style="background:${META[state.overlay].col}"></i>${META[state.overlay].label}</span>`;
+  document.getElementById("legend").innerHTML=h;
+}
+
+/* ---------- STAT STRIP ---------- */
+function renderStats(){
+  const z=cvals[N-1], z3=cvals[N-4], zPrev=cvals[N-2];
+  const [rg,col]=regime(z);
+  const d3=z-z3;
+  const trend = d3>0.05?'accelerating':d3<-0.05?'decelerating':'holding steady';
+  const tcol  = d3>0.05?'var(--pos)':d3<-0.05?'var(--neg)':'var(--gold)';
+  const stats=[
+    {k:"Composite",     v:`${fmt(z)}<small>σ</small>`, x:`${z>=zPrev?'▲':'▼'} ${fmt(z-zPrev)} m/m`, col:z>=0?'var(--pos)':'var(--neg)'},
+    {k:"3-month change",v:`${fmt(d3)}`, x:trend, col:tcol},
+    {k:"Breadth",       v:`${(breadthA[N-1]??D.meta.breadth_last).toFixed(0)}<small>%</small>`, x:'components expanding'},
+    {k:"Lead vs "+D.coin_name.split(" ")[0],v:`${LAG}<small>mo</small>`, x:`r = ${D.leadlag.best_r.toFixed(2)}`},
+    {k:"Regime",        v:`<span style="font-size:18px;color:${col}">${rg}</span>`, x:`as of ${D.meta.last_date}`},
+  ];
+  document.getElementById("stats").innerHTML=stats.map(s=>
+    `<div class="stat"><div class="k">${s.k}</div><div class="v" ${s.col?`style="color:${s.col}"`:''}>${s.v}</div><div class="x">${s.x}</div></div>`).join("");
+
+  // masthead reading
+  document.getElementById("r-big").textContent=fmt(z)+"σ";
+  document.getElementById("r-big").style.color=z>=0?'var(--pos)':'var(--neg)';
+  document.getElementById("r-asof").textContent=`as of ${D.meta.last_date} · vs ${fmt(D.meta.yr_ago)} a year ago`;
+  const reg=document.getElementById("r-regime");
+  reg.querySelector(".dot").style.background=col; reg.querySelector(".t").textContent=rg;
+  reg.style.color=col; reg.style.borderColor="color-mix(in srgb,"+col+" 40%, transparent)";
+}
+
+/* ---------- CONTRIBUTION BARS ---------- */
+function renderBars(){
+  const entries=Object.entries(D.contrib_latest).filter(([k,v])=>v!=null).sort((a,b)=>b[1]-a[1]);
+  const mx=Math.max(1.2,...entries.map(([k,v])=>Math.abs(v)));
+  document.getElementById("contrib-date").textContent=D.meta.last_date;
+  const html=entries.map(([k,v])=>{
+    const w=Math.abs(v)/mx*50, pos=v>=0;
+    return `<div class="brow" data-c="${k}" role="button" tabindex="0" aria-pressed="false">
+      <div class="nm">${META[k].label}<small>${META[k].id} · ${META[k].tf}</small></div>
+      <div class="btrack"><div class="bzero"></div>
+        <div class="bfill" style="${pos?`left:50%;width:${w}%;background:var(--pos)`:`right:50%;width:${w}%;background:var(--neg)`}"></div></div>
+      <div class="bval" style="color:${pos?'var(--pos)':'var(--neg)'}">${fmt(v)}</div>
+    </div>`;
+  }).join("");
+  document.getElementById("bars").innerHTML=html;
+  document.querySelectorAll(".brow").forEach(row=>{
+    const k=row.dataset.c;
+    const toggle=()=>{
+      state.overlay = state.overlay===k?null:k;
+      document.querySelectorAll(".brow").forEach(r=>{r.classList.toggle("sel",r.dataset.c===state.overlay);r.setAttribute("aria-pressed",r.dataset.c===state.overlay);});
+      renderHero();
+    };
+    row.addEventListener("click",toggle);
+    row.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle();}});
+  });
+}
+
+/* ---------- LEAD / LAG ---------- */
+function renderLeadLag(){
+  const corrs=D.leadlag.corrs; const ks=Object.keys(corrs).map(Number).sort((a,b)=>a-b);
+  const mx=Math.max(...ks.map(k=>corrs[k]||0));
+  document.getElementById("llbars").innerHTML=ks.map(k=>{
+    const r=corrs[k]||0, h=Math.max(2,r/mx*100);
+    return `<div class="llbar ${k===LAG?'peak':''}" style="height:${h}%" title="lead ${k}m · r=${r.toFixed(2)}"></div>`;
+  }).join("");
+  document.getElementById("llx").innerHTML=ks.map(k=>`<span>${k%3===0?k:''}</span>`).join("");
+  document.getElementById("ll-note").textContent="corr. vs "+D.coin_name;
+  document.getElementById("llcap").innerHTML=`Best correlation within the targeted <b>3&ndash;6 month</b> window comes at <b>${LAG} months</b> (r&nbsp;=&nbsp;<b>${D.leadlag.best_r.toFixed(2)}</b>) against ${D.meta.name} ${D.coin_name} &mdash; input transforms are calibrated to that horizon, matching VP's design lead. Unconstrained peak: ${D.leadlag.uncon_k}m (r&nbsp;=&nbsp;${D.leadlag.uncon_r.toFixed(2)}). Horizontal axis = months of lead.`;
+}
+
+/* ---------- METHODOLOGY ---------- */
+function renderMethod(){
+  document.getElementById("mlist").innerHTML=Object.entries(META).map(([k,v])=>
+    `<div><span>${v.label}</span><span class="t">${v.id} · ${v.tf}</span></div>`).join("");
+  const ids=Object.values(META).map(v=>`<code>${v.id}</code>`).join(" ");
+  document.getElementById("foot").innerHTML=
+    `<b>Method.</b> For <b>${D.meta.name}</b>, each series is resampled to monthly, transformed as listed (level, year-over-year, or inverted so higher always means stronger growth), then standardized to a z-score over its full history. The composite is the equal-weighted mean of available components (at least three reporting), shown from ${D.meta.start}. Recession bands: ${D.meta.rec_note}. The coincident overlay is ${D.coin_name}; the reported lead is the composite's best cross-correlation within a <b>3&ndash;6 month target window</b> (VP's design lead). Component transforms &mdash; survey momentum (6m change, smoothed) and 3-month-averaged trade growth &mdash; were selected per country to maximise fit at that horizon, so the composite is tuned as a one-to-two-quarter-ahead signal rather than a nowcast.<br>
+    <b>On the inputs.</b> These follow Variant Perception's published input recipes as closely as public data allows; the US board uses the full domestic set (rates, credit, permits, claims, sentiment, hours, capex, real money). A <b>BIS credit-impulse</b> leg (total credit to the private non-financial sector) is offered to every board and retained wherever it improves the 3&ndash;6&nbsp;month fit &mdash; it is currently carried by the US, UK, Euro Area, Japan and China; BIS credit is quarterly, so the latest print is carried forward up to two quarters. The Euro Area yield-curve leg uses the Bund 10y minus the ECB policy rate (both current) so the board stays live even when euro survey data publishes to FRED on a lag. VP's real-M1 and proprietary business-survey series are discontinued on FRED (frozen end-2023), so where needed they are replaced by the nearest current analogues &mdash; OECD consumer/business confidence, the yield curve, industrial-commodity and Korea/China trade momentum, and (for Japan) the OECD China leading index. ${D.code==='CN' ? `China is rebuilt as a <b>credit-led</b> index after the Conference Board's China LEI: the <b>BIS credit impulse</b> (proxying CB's medium- &amp; long-term loans), <b>OECD China CLI</b> momentum (orders &amp; expectations), <b>interbank rates</b> (monetary conditions) and industrial commodities — China's money and property series (CB's other legs) aren't on FRED. It leads the import cycle by ${D.leadlag.best_k}m and, tested against <b>actual China GDP</b>, by ~${D.leadlag.gdp_k} months over 1994–${D.leadlag.gdp_end} (r&nbsp;${D.leadlag.gdp_r}).` : `China is rebuilt as a credit-led index (BIS credit impulse, OECD China CLI momentum, monetary conditions) after the Conference Board's China LEI, rather than the external-demand gauge used previously.`} Independent reconstructions in the spirit of VP's framework, not their proprietary indices.<br>
+    <b>Series (${D.meta.name}).</b> ${ids}. <b>Source.</b> OECD, IMF, BIS &amp; national data via FRED (St. Louis Fed). Baked in &mdash; no live calls. Fetched ${DATA.fetched}.`;
+}
+
+/* ---------- HISTORICAL DATA TABLE + EXPORT ---------- */
+/* COMPN, SHORT, compMaps set per-country in setActive() */
+function compVal(k,i){ const m=months[i]; return (m in compMaps[k])?compMaps[k][m]:null; }
+
+function renderTable(){
+  document.getElementById("tbl-note").textContent = `${N} monthly rows · ${months[0]} – ${months[N-1]} · newest first`;
+  let h = `<thead><tr><th title="Month">Month</th><th title="Composite z-score">Comp</th>`;
+  h += COMPN.map(k=>`<th title="${META[k].label} — ${META[k].id} · ${META[k].tf}">${SHORT[k]}</th>`).join("");
+  h += `<th title="Share of components expanding">Brdth</th><th title="${D.coin_name}, year-over-year">${D.coin_name.split(" ")[0]}&nbsp;%</th></tr></thead><tbody>`;
+  const rows=[];
+  for(let i=N-1;i>=0;i--){
+    const cz=cvals[i];
+    let r=`<tr><td>${months[i]}</td><td class="cmp ${cz>=0?'pos':'neg'}">${fmt(cz)}</td>`;
+    r += COMPN.map(k=>{const v=compVal(k,i); return `<td class="${v==null?'nul':(v>=0?'pos':'neg')}">${v==null?'·':fmt(v)}</td>`;}).join("");
+    r += `<td>${breadthA[i]==null?'·':breadthA[i].toFixed(0)}</td>`;
+    r += `<td class="${ipA[i]==null?'nul':(ipA[i]>=0?'pos':'neg')}">${ipA[i]==null?'·':fmt(ipA[i],1)}</td></tr>`;
+    rows.push(r);
+  }
+  document.getElementById("histtbl").innerHTML = h + rows.join("") + `</tbody>`;
+}
+
+function buildCSV(){
+  const head=["Month","Composite_z",...COMPN.map(k=>META[k].id+"_z"),"Breadth_pct",D.coin_name.replace(/ /g,"_")+"_pct"];
+  const num=(x,d=4)=> x==null?"":(+x).toFixed(d);
+  const lines=[head.join(",")];
+  for(let i=0;i<N;i++){                 // chronological in the file
+    const cells=[months[i], num(cvals[i],4), ...COMPN.map(k=>num(compVal(k,i),4)),
+                 num(breadthA[i],1), num(ipA[i],2)];
+    lines.push(cells.join(","));
+  }
+  return lines.join("\r\n");
+}
+function flash(btn,txt){const o=btn.innerHTML;btn.classList.add("ok");btn.textContent=txt;setTimeout(()=>{btn.classList.remove("ok");btn.innerHTML=o;},1400);}
+document.getElementById("btn-csv").addEventListener("click",e=>{
+  const blob=new Blob([buildCSV()],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob); const a=document.createElement("a");
+  a.href=url; a.download=`growth_lei_${CC}_${DATA.fetched}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  flash(e.currentTarget,"Downloaded ✓");
+});
+document.getElementById("btn-copy").addEventListener("click",async e=>{
+  try{ await navigator.clipboard.writeText(buildCSV()); flash(e.currentTarget,"Copied ✓"); }
+  catch(_){ const ta=document.createElement("textarea"); ta.value=buildCSV(); document.body.appendChild(ta); ta.select();
+    try{document.execCommand("copy");flash(e.currentTarget,"Copied ✓");}catch(__){flash(e.currentTarget,"Copy failed");} ta.remove(); }
+});
+
+/* ---------- controls ---------- */
+document.getElementById("range").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed","false"));
+  b.setAttribute("aria-pressed","true"); state.yrs=+b.dataset.yrs; renderHero();
+});
+function tog(id,key,after){ const el=document.getElementById(id);
+  el.addEventListener("click",()=>{ state[key]=!state[key]; el.setAttribute("aria-pressed",state[key]); if(after)after(); renderHero(); });
+}
+tog("t-ip","ip");
+tog("t-align","align");
+tog("t-bands","bands");
+
+/* ---------- init ---------- */
+document.getElementById("ctabs").innerHTML = DATA.order.map(cc=>`<button role="tab" data-cc="${cc}" aria-pressed="false">${DATA.names[cc]}</button>`).join("");
+document.getElementById("ctabs").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b)return; setActive(b.dataset.cc);});
+setActive(DATA.order[0]);
+let rt; new ResizeObserver(()=>{clearTimeout(rt);rt=setTimeout(renderHero,90);}).observe(document.querySelector(".chartwrap"));
+</script>
+</body>
+</html>
